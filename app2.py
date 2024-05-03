@@ -42,7 +42,7 @@ prompt_template = """
     
     Make sure to add filename and page number at the end of sentence you are citing to.
         
-    Reply "Not applicable" if text is irrelevant.
+    Strictly Reply "Not applicable" if text is irrelevant.
      
     The PDF content is:
     {pdf_extract}
@@ -91,30 +91,33 @@ if question:
     response = []
     result = ""
     for chunk in openai.ChatCompletion.create(
-        model="gpt-3.5-turbo", messages=prompt, stream=True
-    ):
+        model="gpt-3.5-turbo", messages=prompt, stream=True):
         text = chunk.choices[0].get("delta", {}).get("content")
         if text is not None:
             response.append(text)
             result = "".join(response).strip()
             botmsg.write(result)
 
+    if result == "Not applicable.":
+        response = []
+        result=""
+        print(question)
+        # Send the prompt directly to OpenAI and get the reply
+        for chunk in openai.ChatCompletion.create(
+        model="gpt-4", messages=[
+                      {
+                        "role": "user",
+                       "content": f"Answer this from what your trained on and not from my pdf question is {question} and append that 'this message is from openAI and not from pdf you provided' ",
+                      }
+              ], stream=True):
+            text = chunk.choices[0].get("delta", {}).get("content")
+            if text is not None:
+                response.append(text)
+                result = "".join(response).strip()
+                botmsg.write(result)
+
     # Add the assistant's response to the prompt
     prompt.append({"role": "assistant", "content": result})
 
     # Store the updated prompt in the session state
     st.session_state["prompt"] = prompt
-
-    if result == "Not applicable.":
-        # Send the prompt directly to OpenAI and get the reply
-        openai_response = openai.ChatCompletion.create(
-            messages=[
-                      {
-                        "role": "user",
-                       "content": "{prompt}",
-                      }
-              ], model="gpt-3.5-turbo",
-        )
-        # Display the OpenAI response
-        with st.chat_message("assistant"):
-            st.write(openai_response.choices[0].text)
